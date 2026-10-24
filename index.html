@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>909decode earth - Real-Time Sonic Earth</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Tajawal:wght@400;700&family=Monoton&family=Audiowide&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--cyan:#00f3ff;--magenta:#ff00ea;--dark:#03070d;--panel:rgba(8,15,25,.75);--border:rgba(0,243,255,.3)}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none}
+body{background:transparent;color:#fff;font-family:'Share Tech Mono',monospace;height:100vh;overflow:hidden}
+:focus-visible{outline:2px solid var(--magenta);outline-offset:2px}
+
+/* --- كود خلفية الفيديو --- */
+.site-bg-video{position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:-2;filter:brightness(1.2);}
+.site-bg-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(3,7,13,.2);z-index:-1;}
+
+/* --- تنسيقات اللوجو الجديد --- */
+.start-logo {
+    width: 170px;
+    height: 170px;
+    border-radius: 50%; /* لجعله دائرياً */
+    object-fit: cover;
+    border: 3px solid var(--cyan);
+    box-shadow: 0 0 25px var(--cyan);
+    margin-bottom: 20px;
+    animation: pulseGlow 2.5s infinite alternate;
+    background: #000;
+}
+
+.corner-logo {
+    display: none; /* مخفي في البداية حتى يتم تشغيل النظام */
+    position: fixed;
+    top: 20px;
+    right: 2000px;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--cyan);
+    box-shadow: 0 0 15px var(--cyan);
+    z-index: 9999; /* ليكون فوق كل العناصر */
+    background: #000;
+}
+
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 15px var(--cyan); }
+    100% { box-shadow: 0 0 40px var(--cyan), 0 0 15px var(--magenta); }
+}
+/* ------------------------------- */
+
+#start-screen{position:fixed;inset:0;background:rgba(3,7,13,.3);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;transition:opacity .8s}
+h1{font-family:Orbitron,sans-serif;font-size:clamp(2.2rem,8vw,4rem);letter-spacing:8px;background:linear-gradient(90deg,var(--cyan),var(--magenta));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.subtitle{color:#cbd5e1;letter-spacing:4px;margin-bottom:20px;text-shadow: 0 2px 4px rgba(0,0,0,0.8);}
+.hint{color:#cbd5e1;max-width:520px;line-height:1.6;margin-bottom:35px;font-size:.95rem;text-shadow: 0 2px 4px rgba(0,0,0,0.8);}
+#start-btn{padding:18px 60px;font:1.4rem Orbitron,sans-serif;background:rgba(0,243,255,.2);color:#fff;border:2px solid var(--cyan);cursor:pointer;transition:.3s;backdrop-filter:blur(5px);text-shadow: 0 0 10px var(--cyan)}
+#start-btn:hover,#start-btn:focus-visible{background:var(--cyan);color:var(--dark);box-shadow:0 0 40px var(--cyan)}
+.app{display:none;width:100%;height:calc(100% - 46px);grid-template-columns:270px 1fr 320px;gap:15px;padding:15px}
+.sidebar,.tele{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;backdrop-filter:blur(12px);overflow:auto}
+.title{font-family:Orbitron,sans-serif;color:var(--cyan);font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;letter-spacing:2px}
+.layer-btn,.mode-btn{padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid #334455;color:#cbd5e1;font:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:.2s}
+.layer-btn:hover,.mode-btn:hover{border-color:#9fb0c2;color:#fff;background:rgba(255,255,255,.1)}
+.layer-btn.active{background:rgba(0,243,255,.2);border-color:var(--cyan);color:var(--cyan)}
+.mode-btn.active{border-color:var(--magenta);color:var(--magenta);background:rgba(255,0,234,.15)}
+label{font-size:.8rem;color:#cbd5e1;display:flex;flex-direction:column;gap:5px}
+input[type=date]{background:#0a1522;color:#fff;border:1px solid #334455;padding:8px;font:inherit;color-scheme:dark}
+input[type=range]{accent-color:var(--cyan)}
+select,input[type=search]{background:#0a1522;color:#fff;border:1px solid #334455;padding:8px;font:inherit;color-scheme:dark;min-width:0}
+#sform{display:flex;gap:6px}#sform input{flex:1}
+#start-screen select{margin-bottom:18px;background:rgba(10,21,34,.8);color:#fff;border:1px solid #334455;padding:8px;backdrop-filter:blur(5px);}
+.status{margin-top:auto;font-size:.78rem;color:#8a9bb0;line-height:1.7}
+.map-area{position:relative;background:#000;border:1px solid var(--border);border-radius:8px;overflow:hidden;touch-action:none;min-height:260px}
+canvas#map{width:100%;height:100%;display:block;cursor:crosshair}
+canvas#lbl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.lx,.ly,.scan{position:absolute;pointer-events:none;display:none}
+.lx{width:1px;height:100%;top:0;left:0;background:var(--cyan);box-shadow:0 0 12px 3px var(--cyan);opacity:.7}
+.ly{height:1px;width:100%;left:0;top:0;background:var(--cyan);box-shadow:0 0 12px 3px var(--cyan);opacity:.7}
+.scan{width:2px;height:100%;top:0;left:0;background:var(--magenta);box-shadow:0 0 20px 5px var(--magenta)}
+canvas#wave{width:100%;height:90px;background:rgba(0,0,0,.6);border-radius:5px;border:1px solid #1a2a3a}
+.box{background:rgba(0,0,0,.4);padding:11px;border-left:3px solid var(--cyan);font-size:.88rem;line-height:1.7}
+.box.m{border-color:var(--magenta)}
+.box span{color:var(--cyan);float:right;font-weight:700}
+.modes{display:flex;gap:8px}.modes .mode-btn{flex:1;justify-content:center}
+.legend{font-size:.75rem;color:#9fb0c2;line-height:1.6}
+@media(max-width:900px){body{height:auto;overflow:auto}.app{grid-template-columns:1fr;height:auto}.map-area{height:55vh}}
+
+/* ================= التبويبات + منطقة العرض ================= */
+.center{display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0}
+.stage{position:relative;flex:1;min-height:0}
+.stage .map-area{position:absolute;inset:0;height:100%;min-height:0}
+.tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tab{padding:10px 18px;background:rgba(255,255,255,.05);border:1px solid #334455;color:#cbd5e1;font:inherit;cursor:pointer;border-radius:8px;transition:.2s;backdrop-filter:blur(8px)}
+.tab:hover{color:#fff;border-color:#9fb0c2}
+.tab.active{background:rgba(0,243,255,.2);border-color:var(--cyan);color:var(--cyan)}
+#tab-ai.active{background:rgba(255,0,234,.25);border-color:var(--magenta);color:#fff}
+@media(max-width:900px){.center{height:auto}.stage{flex:none;height:60vh}}
+
+/* ================= اسم المشروع المزخرف المتحرك ================= */
+.brand{font-family:'Monoton',cursive;font-weight:400;letter-spacing:4px;line-height:1.2;display:flex;flex-wrap:wrap;justify-content:center}
+h1.brand{background:none;font-size:clamp(1.8rem,7vw,3.8rem);margin-bottom:14px}
+.brand span{display:inline-block;-webkit-text-fill-color:currentColor;
+  animation:bWave 2.4s ease-in-out infinite,bColor 6s linear infinite;
+  animation-delay:calc(var(--i)*.12s),calc(var(--i)*-.4s)}
+.brand .sp{width:.5em}
+.brand.mini{font-size:1.15rem;letter-spacing:2px;margin-inline-start:auto}
+@keyframes bWave{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-.18em) scale(1.08)}}
+@keyframes bColor{0%,100%{color:#00f3ff;text-shadow:0 0 10px #00f3ff,0 0 30px #00f3ff}
+                  50%{color:#ff00ea;text-shadow:0 0 10px #ff00ea,0 0 30px #ff00ea}}
+
+/* ================= MONOFYA HEROES (صفحة الذكاء الاصطناعي) ================= */
+.ai-btn{border-color:var(--magenta)!important;color:#fff!important;background:rgba(255,0,234,.15)!important;justify-content:center!important}
+.ai-btn:hover{background:var(--magenta)!important;color:var(--dark)!important}
+#ai-page{display:none;position:absolute;inset:0;z-index:20;background:rgba(3,7,13,.92);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:8px;font-family:'Tajawal','Share Tech Mono',sans-serif;user-select:text}
+#ai-page *{user-select:text}
+#ai-page.open{display:block}
+.ai-wrap{max-width:900px;height:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px;padding:14px}
+.ai-head{display:flex;align-items:center;gap:14px}
+.ai-logo{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--cyan);box-shadow:0 0 18px var(--cyan);background:#000}
+.ai-ttl{flex:1}
+.ai-name{font-family:Orbitron,sans-serif;font-weight:900;font-size:clamp(1.3rem,5vw,2.2rem);letter-spacing:4px;background:linear-gradient(90deg,var(--cyan),var(--magenta));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.ai-sub{color:#cbd5e1;font-size:.82rem;letter-spacing:2px}
+#ai-close{background:rgba(255,0,234,.2);color:#fff;border:1px solid var(--magenta);font:inherit;font-size:.9rem;padding:10px 14px;cursor:pointer;border-radius:6px;transition:.2s}
+#ai-close:hover,#ai-close:focus-visible{background:var(--magenta);color:var(--dark)}
+#ai-log{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ai-m{max-width:88%;padding:11px 15px;border-radius:10px;line-height:1.85;font-size:1rem;white-space:pre-wrap;word-wrap:break-word;color:#e6f1ff}
+.ai-u{align-self:flex-start;background:rgba(255,0,234,.14);border:1px solid rgba(255,0,234,.5)}
+.ai-a{align-self:flex-end;background:rgba(0,243,255,.09);border:1px solid var(--border)}
+.ai-m b{color:var(--cyan)}
+.ai-e{color:#ff9a9a}
+.ai-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ai-chips button{background:rgba(255,255,255,.05);border:1px solid #334455;color:#cbd5e1;font:inherit;font-size:.9rem;padding:8px 13px;border-radius:20px;cursor:pointer;transition:.2s}
+.ai-chips button:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,243,255,.12)}
+#ai-form{display:flex;gap:8px}
+#ai-q{flex:1;min-width:0;background:#0a1522;color:#fff;border:1px solid #334455;border-radius:8px;padding:13px 14px;font:inherit;font-size:1rem}
+#ai-q:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 12px rgba(0,243,255,.35)}
+#ai-go{font:700 .95rem Orbitron,sans-serif;background:rgba(0,243,255,.2);color:#fff;border:2px solid var(--cyan);border-radius:8px;padding:0 22px;cursor:pointer;transition:.3s}
+#ai-go:hover:not(:disabled){background:var(--cyan);color:var(--dark);box-shadow:0 0 25px var(--cyan)}
+#ai-go:disabled{opacity:.5;cursor:wait}
+.ai-dots::after{content:'●●●';letter-spacing:3px;color:var(--cyan);animation:aib 1s infinite}
+@keyframes aib{50%{opacity:.25}}
+
+/* ================= ABOUT + TICKER ================= */
+#about-page{display:none;position:absolute;inset:0;z-index:20;background:rgba(3,7,13,.92);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:8px;overflow-y:auto}
+#about-page.open{display:block}
+.ab-wrap{max-width:900px;margin:0 auto;padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.ab-logo{width:110px;height:110px;border-radius:50%;object-fit:cover;border:3px solid var(--cyan);animation:pulseGlow 2.5s infinite alternate;background:#000}
+h2.brand.ab-title{font-size:clamp(1.6rem,6vw,3rem)}
+.ab-sub{color:#cbd5e1;letter-spacing:4px;font-size:.85rem}
+.ab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;width:100%;margin-top:8px;direction:ltr}
+.ab-card{padding:22px 14px;border-radius:12px;background:rgba(8,15,25,.8);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;
+  animation:cardIn .7s ease forwards,floaty 4s ease-in-out infinite;animation-delay:calc(var(--i)*.15s),calc(var(--i)*-.8s);transition:border-color .3s,box-shadow .3s}
+.ab-card:hover{border-color:var(--magenta);box-shadow:0 0 28px rgba(255,0,234,.45)}
+.ab-av{position:relative;z-index:0;width:88px;height:88px;border-radius:50%;display:grid;place-items:center;font-family:'Monoton',cursive;font-size:1.7rem;color:#fff;text-shadow:0 0 12px var(--cyan)}
+.ab-av::before{content:'';position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(var(--cyan),var(--magenta),var(--cyan));z-index:-2;animation:spin 5s linear infinite}
+.ab-av::after{content:'';position:absolute;inset:0;border-radius:50%;background:#050b14;z-index:-1}
+.ab-name,.ticker-item{font-family:'Audiowide',sans-serif;background:linear-gradient(90deg,var(--cyan),var(--magenta),var(--cyan));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:gradMove 4s linear infinite}
+.ab-name{font-size:1.15rem;letter-spacing:2px}
+.ab-role{color:#9fb0c2;font-size:.75rem;letter-spacing:3px}
+@keyframes cardIn{from{opacity:0}to{opacity:1}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes gradMove{to{background-position:200% 0}}
+.ticker{position:fixed;left:0;right:0;bottom:0;height:46px;z-index:900;display:none;align-items:center;overflow:hidden;direction:ltr;background:rgba(3,7,13,.88);border-top:1px solid var(--cyan);box-shadow:0 -4px 24px rgba(0,243,255,.25);backdrop-filter:blur(8px)}
+.ticker-track{display:flex;align-items:center;width:max-content;animation:tick 120s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-item{font-size:1.05rem;letter-spacing:3px;padding:0 6px;white-space:nowrap}
+.ticker-item.hl{font-family:'Monoton',cursive;font-size:1.25rem;letter-spacing:5px}
+.ticker-sep{color:var(--magenta);padding:0 18px;text-shadow:0 0 10px var(--magenta)}
+@keyframes tick{to{transform:translateX(-50%)}}
+@media(max-width:900px){.app{padding-bottom:60px}}
+
+html[lang=ar] .ab-name,html[lang=ar] .ticker-item,html[lang=ar] .ticker-item.hl{font-family:'Aref Ruqaa','Tajawal',serif;letter-spacing:0}
+html[lang=ar] .ticker-item{font-size:1.3rem}
+html[lang=ar] .ticker-item.hl{font-size:1.5rem;font-weight:700}
+html[lang=ar] .ab-name{font-size:1.45rem}
+html[lang=ar] .ab-sub{letter-spacing:0;font-size:1rem}
+
+.ab-mission{max-width:680px;color:#cbd5e1;line-height:1.9;font-size:.95rem}
+.ab-mission p+p{margin-top:2px}
+.ab-mission .ab-loc{margin-top:10px;color:var(--cyan)}
+.ticker-item{text-transform:uppercase}
+.ticker-emoji{padding:0 4px;font-size:1.15rem;-webkit-text-fill-color:initial}
+.ab-sub{text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<video class="site-bg-video" autoplay loop muted playsinline>
+    <source src="نسخة من Green and White Natural Travel Intro Video.mp4" type="video/mp4">
+</video>
+<div class="site-bg-overlay"></div>
+
+<!-- اللوجو الثابت في أعلى اليمين (يظهر بعد بدء التشغيل) -->
+<img src="WhatsApp Image 2026-10-24 at 1.33.56 PM.jpeg" class="corner-logo" id="corner-logo" alt="Monofya Heroes Logo">
+
+<div id="start-screen">
+  <!-- اللوجو في منتصف شاشة البداية -->
+  <img src="WhatsApp Image 2026-10-24 at 1.33.56 PM.jpeg" class="start-logo" alt="Monofya Heroes Logo">
+
+  <h1 class="brand" id="brand"></h1>
+  <div class="subtitle">REAL-TIME SONIC EARTH ENGINE</div>
+  <select class="langsel" aria-label="Language"></select>
+  <p class="hint" data-i="hint"></p>
+  <button id="start-btn" data-i="start"></button>
+</div>
+
+<main class="app" id="app">
+  <nav class="sidebar" aria-label="Controls">
+    <div class="title" data-i="layers"></div>
+    <div id="layers" style="display:flex;flex-direction:column;gap:8px"></div>
+    <label><span data-i="date"></span><input type="date" id="date"></label>
+    <label><span data-i="vol"></span><input type="range" id="vol" min="0" max="100" value="80"></label>
+    <label><span data-i="speed"></span><input type="range" id="speed" min="1" max="12" value="4"></label>
+    <label><span data-i="inst"></span><select id="inst"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="sawtooth">Saw</option><option value="square">Square</option></select></label>
+    <label><span data-i="scale"></span><select id="scale"><option value="pent">Pentatonic</option><option value="major">Major</option><option value="hijaz">Hijaz (maqam)</option></select></label>
+    <button class="mode-btn" id="speech"></button>
+    <button class="mode-btn" id="labels"></button>
+    <button class="mode-btn" id="rec"></button>
+    <select class="langsel" aria-label="Language"></select>
+    <div class="status"><p id="src">> SOURCE: --</p><p>> DATA: NASA GIBS / EIC</p></div>
+  </nav>
+
+  <div class="center">
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tab-map" role="tab" type="button">🌍 EARTH MAP</button>
+      <button class="tab" id="tab-ai" role="tab" type="button">🤖 909 Chat</button>
+      <button class="tab" id="tab-about" role="tab" type="button">👥 ABOUT</button>
+      <div class="brand mini" id="brand-mini"></div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="map-area" id="area" tabindex="0" role="application" aria-label="Sonic Earth map. Arrow keys move the probe, Space toggles auto-scan, 1-5 switch layers.">
+        <canvas id="map"></canvas><canvas id="lbl" aria-hidden="true"></canvas>
+        <div class="lx" id="lx"></div><div class="ly" id="ly"></div><div class="scan" id="scan"></div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="tele" aria-label="Audio telemetry">
+    <form id="sform"><input type="search" id="q"><button class="mode-btn" data-i="go"></button></form>
+    <div class="title">AUDIO TELEMETRY</div>
+    <canvas id="wave" aria-hidden="true"></canvas>
+    <div class="box">
+      <div>PIXEL RGB: <span id="v-rgb">---</span></div>
+      <div>LAT / LON: <span id="v-pos">---</span></div>
+      <div><span data-i="cls"></span>: <span id="v-class" style="color:#fff">---</span></div>
+    </div>
+    <div class="box"><div data-i="place"></div><div id="v-place" style="color:var(--cyan);font-weight:700;margin-top:4px">---</div></div>
+    <div class="box m">
+      <div>MELODY (Hz): <span id="v-mel">---</span></div>
+      <div>BASS (Hz): <span id="v-bass">---</span></div>
+      <div>FILTER (Hz): <span id="v-flt">---</span></div>
+    </div>
+    <div class="legend" data-i="legend"></div>
+    <div class="title" data-i="mode"></div>
+    <div class="modes">
+      <button class="mode-btn active" id="b-manual" data-i="manual"></button>
+      <button class="mode-btn" id="b-auto" data-i="auto"></button>
+    </div>
+  </aside>
+</main>
+
+<!-- ================= صفحة Monofya Heroes (بتتنقل جوه منطقة الخريطة بالـ JS) ================= -->
+<section id="ai-page" role="dialog" aria-label="909 Chat">
+  <div class="ai-wrap">
+    <div class="ai-head">
+      <img class="ai-logo" src="WhatsApp Image 2026-10-24 at 1.33.56 PM.jpeg" alt="Monofya Heroes Logo" onerror="this.style.display='none'">
+      <div class="ai-ttl">
+        <div class="ai-name">909 Chat</div>
+        <div class="ai-sub">اسأل أي سؤال عن الفضاء</div>
+      </div>
+      <button id="ai-close" type="button">✕ 🌍 MAP</button>
+    </div>
+    <div id="ai-log" aria-live="polite"></div>
+    <div class="ai-chips" id="ai-chips"></div>
+    <form id="ai-form">
+      <input id="ai-q" dir="auto" autocomplete="off" placeholder="اكتب سؤالك عن الفضاء… / Ask about space" aria-label="سؤالك">
+      <button id="ai-go">إرسال</button>
+    </form>
+  </div>
+</section>
+
+<!-- ================= صفحة ABOUT (بتتنقل جوه منطقة الخريطة بالـ JS) ================= -->
+<section id="about-page" role="dialog" aria-label="About">
+  <div class="ab-wrap">
+    <img class="ab-logo" src="WhatsApp Image 2026-10-24 at 1.33.56 PM.jpeg" alt="Monofya Heroes Logo" onerror="this.style.display='none'">
+    <h2 class="brand ab-title" id="ab-title"></h2>
+    <div class="ab-sub" id="ab-sub">THE TEAM BEHIND 909decode earth</div>
+    <div class="ab-mission" id="ab-mission"></div>
+    <div class="ab-grid" id="ab-grid"></div>
+  </div>
+</section>
+
+<!-- شريط متحرك تحت -->
+<div class="ticker" id="ticker" aria-label="Monofya Heroes team"><div class="ticker-track" id="ticker-track"></div></div>
+
+<script>
+/* ====================================================================
+   🔑 حط مفتاح الـ API بتاعك هنا (بين العلامتين '') :
+   ==================================================================== */
+const API_KEY = '';   // سيبه فاضي لو بتستخدم AI_PROXY (الأأمن). متحطش مفتاح حقيقي هنا وترفعه على GitHub
+/* رابط الـ Cloudflare Worker بتاعك، مثال: 'https://cosmo.yourname.workers.dev' */
+const AI_PROXY = 'https://nameless-unit-aa29.elmomen2013.workers.dev'
+/* ==================================================================== */
+
+const $=id=>document.getElementById(id);
+const cv=$('map'),ctx=cv.getContext('2d',{willReadFrequently:true});
+const wv=$('wave'),wctx=wv.getContext('2d'),area=$('area');
+const lbl=$('lbl'),lctx=lbl.getContext('2d');
+const lx=$('lx'),ly=$('ly'),scan=$('scan');
+let rec,chunks=[],showLbl=true,lang='en',lblImg=null,curPlace='',cur={c:'',lat:0,lon:0},A={},mode='manual',cx=0,cy=0,scanX=0,key='true',img=new Image(),offline=false,speech=false,lastSay='',lastT=0,started=false;
+
+const SC={pent:[0,3,5,7,10],major:[0,2,4,5,7,9,11],hijaz:[0,1,4,5,7,8,10]};let notes=[];
+function buildNotes(){notes=[];[.5,1,2].forEach(o=>SC[$('scale').value].forEach(n=>notes.push(261.63*2**(n/12)*o)))}
+$('scale').onchange=buildNotes;$('inst').onchange=()=>A.mel&&(A.mel.o.type=$('inst').value);
+
+const T={
+en:{hint:'Explore live NASA Earth imagery by sound. Move the mouse or finger over the map, or use the arrow keys (Shift = bigger steps, Space = auto-scan, 1-5 = layers). Headphones recommended.',start:'INITIALIZE SYSTEM',layers:'NASA EIC DATA LAYERS',date:'IMAGE DATE (daily layers)',vol:'VOLUME',speed:'AUTO-SCAN SPEED',inst:'INSTRUMENT',scale:'MUSICAL SCALE',voice:'VOICE DESCRIPTION',labels:'PLACE LABELS',rec:'RECORD SOUND',place:'PLACE',cls:'CLASS',legend:'Pitch = color / data value<br>Bass = blue (water)<br>Brightness = saturation<br>Left-right pan = longitude<br>Low-high drone = latitude<br>Silence = no data',mode:'SCAN MODE',manual:'MANUAL',auto:'AUTO-SCAN',search:'Search a place...',go:'GO',low:'LOW',mid:'MEDIUM',high:'HIGH',ocean:'OCEAN / WATER',land:'LAND / FOREST',ice:'CLOUDS / ICE',desert:'DESERT / BARE LAND',nodata:'NO DATA',water:'Open water / no named place',lat:'Latitude',lon:'longitude',l_true:'TRUE COLOR',l_night:'CITY LIGHTS',l_land:'LAND TEMPERATURE',l_sea:'SEA TEMPERATURE',l_rain:'RAINFALL'},
+ar:{hint:'استكشف صور ناسا الحية للأرض بالصوت. حرّك الماوس أو إصبعك فوق الخريطة، أو استخدم الأسهم (Shift = خطوة أكبر، Space = مسح تلقائي، 1-5 = الطبقات). يُفضّل استخدام سماعات.',start:'تشغيل النظام',layers:'طبقات بيانات ناسا EIC',date:'تاريخ الصورة (للطبقات اليومية)',vol:'مستوى الصوت',speed:'سرعة المسح التلقائي',inst:'الآلة',scale:'السلّم الموسيقي',voice:'الوصف الصوتي',labels:'أسماء الأماكن',rec:'تسجيل الصوت',place:'المكان',cls:'التصنيف',legend:'النغمة = اللون / قيمة البيانات<br>الباس = الأزرق (الماء)<br>السطوع = التشبّع<br>اليمين/اليسار = خط الطول<br>الدرون منخفض/عالٍ = خط العرض<br>الصمت = لا توجد بيانات',mode:'وضع المسح',manual:'يدوي',auto:'مسح تلقائي',search:'ابحث عن مكان...',go:'اذهب',low:'منخفض',mid:'متوسط',high:'مرتفع',ocean:'محيط / مياه',land:'يابسة / غابات',ice:'سحب / جليد',desert:'صحراء / أرض جرداء',nodata:'لا توجد بيانات',water:'مياه مفتوحة / لا يوجد مكان مسمّى',lat:'خط العرض',lon:'خط الطول',l_true:'الألوان الحقيقية',l_night:'أضواء المدن',l_land:'حرارة اليابسة',l_sea:'حرارة البحر',l_rain:'الأمطار'},
+fr:{hint:'Explorez les images de la Terre de la NASA par le son. Déplacez la souris ou le doigt sur la carte, ou utilisez les flèches (Maj = pas plus grand, Espace = balayage auto, 1-5 = couches). Casque recommandé.',start:'INITIALISER',layers:'COUCHES DE DONNÉES NASA EIC',date:"DATE DE L'IMAGE (couches quotidiennes)",vol:'VOLUME',speed:'VITESSE DU BALAYAGE',inst:'INSTRUMENT',scale:'GAMME MUSICALE',voice:'DESCRIPTION VOCALE',labels:'NOMS DES LIEUX',rec:'ENREGISTRER',place:'LIEU',cls:'CLASSE',legend:'Hauteur = couleur / valeur<br>Basse = bleu (eau)<br>Brillance = saturation<br>Panoramique = longitude<br>Bourdon grave/aigu = latitude<br>Silence = pas de données',mode:'MODE DE BALAYAGE',manual:'MANUEL',auto:'BALAYAGE AUTO',search:'Rechercher un lieu...',go:'OK',low:'FAIBLE',mid:'MOYEN',high:'ÉLEVÉ',ocean:'OCÉAN / EAU',land:'TERRE / FORÊT',ice:'NUAGES / GLACE',desert:'DÉSERT / TERRE NUE',nodata:'PAS DE DONNÉES',water:'Eaux libres / aucun lieu nommé',lat:'Latitude',lon:'longitude',l_true:'COULEURS RÉELLES',l_night:'LUMIÈRES DES VILLES',l_land:'TEMPÉRATURE TERRESTRE',l_sea:'TEMPÉRATURE DE LA MER',l_rain:'PRÉCIPITATIONS'},
+tr:{hint:'NASA’nın canlı Dünya görüntülerini sesle keşfedin. Fareyi veya parmağınızı harita üzerinde gezdirin ya da ok tuşlarını kullanın (Shift = büyük adım, Boşluk = otomatik tarama, 1-5 = katmanlar). Kulaklık önerilir.',start:'SİSTEMİ BAŞLAT',layers:'NASA EIC VERİ KATMANLARI',date:'GÖRÜNTÜ TARİHİ (günlük katmanlar)',vol:'SES SEVİYESİ',speed:'OTOMATİK TARAMA HIZI',inst:'ENSTRÜMAN',scale:'MÜZİK GAMI',voice:'SESLİ AÇIKLAMA',labels:'YER ADLARI',rec:'SESİ KAYDET',place:'YER',cls:'SINIF',legend:'Perde = renk / veri değeri<br>Bas = mavi (su)<br>Parlaklık = doygunluk<br>Sol-sağ panorama = boylam<br>Alçak-yüksek drone = enlem<br>Sessizlik = veri yok',mode:'TARAMA MODU',manual:'MANUEL',auto:'OTO TARAMA',search:'Bir yer ara...',go:'GİT',low:'DÜŞÜK',mid:'ORTA',high:'YÜKSEK',ocean:'OKYANUS / SU',land:'KARA / ORMAN',ice:'BULUT / BUZ',desert:'ÇÖL / ÇIPLAK ARAZİ',nodata:'VERİ YOK',water:'Açık su / adlandırılmış yer yok',lat:'Enlem',lon:'boylam',l_true:'GERÇEK RENK',l_night:'ŞEHİR IŞIKLARI',l_land:'KARA SICAKLIĞI',l_sea:'DENİZ SICAKLIĞI',l_rain:'YAĞIŞ'}};
+const tr=k=>T[lang][k]||T.en[k];
+function toggles(){
+  [['speech',speech,'voice'],['labels',showLbl,'labels']].forEach(([id,on,k])=>{const b=$(id);b.textContent=tr(k)+(on?' ✓':' ✗');b.setAttribute('aria-pressed',on);b.classList.toggle('active',on)});
+  const on=rec&&rec.state==='recording';$('rec').textContent=tr('rec')+(on?' ●':'');$('rec').classList.toggle('active',!!on);
+}
+function applyLang(){
+  document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  document.querySelectorAll('[data-i]').forEach(e=>e.innerHTML=tr(e.dataset.i));
+  document.querySelectorAll('.langsel').forEach(x=>x.value=lang);
+  $('q').placeholder=tr('search');curPlace='';toggles();window.__team&&window.__team();
+}
+
+const L={
+ true:{n:'TRUE COLOR',i:'🌍',id:'MODIS_Terra_CorrectedReflectance_TrueColor',day:1,t:'terrain'},
+ night:{n:'CITY LIGHTS',i:'🌃',id:'VIIRS_Black_Marble',t:'lum',lab:['DARK AREA','SETTLED AREA','URBAN CORE']},
+ land:{n:'LAND TEMPERATURE',i:'🌡️',id:'MODIS_Terra_Land_Surface_Temp_Day',day:1,t:'hue',lab:['COLD','MILD','HOT']},
+ sea:{n:'SEA TEMPERATURE',i:'🌊',id:'GHRSST_L4_MUR_Sea_Surface_Temperature',day:1,t:'hue',lab:['COLD WATER','WARM WATER','VERY WARM WATER']},
+ rain:{n:'RAINFALL',i:'🌧️',id:'IMERG_Precipitation_Rate',day:1,t:'hue',lab:['LIGHT RAIN','RAIN','HEAVY RAIN']}
+};
+const url=k=>'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&STYLES=&CRS=EPSG:4326&BBOX=-90,-180,90,180&WIDTH=1440&HEIGHT=720&FORMAT=image/jpeg&LAYERS='+L[k].id+(L[k].day?'&TIME='+$('date').value:'');
+
+Object.keys(L).forEach(k=>{
+  const b=document.createElement('button');b.className='layer-btn';b.dataset.k=k;
+  b.innerHTML=`<span data-i="l_${k}"></span><span aria-hidden="true">${L[k].i}</span>`;
+  b.onclick=()=>load(k);$('layers').appendChild(b);
+});
+const today=new Date();$('date').max=today.toISOString().slice(0,10);
+$('date').value=new Date(Date.now()-3*864e5).toISOString().slice(0,10);
+$('date').onchange=()=>load(key);
+
+function load(k){
+  key=k;
+  document.querySelectorAll('.layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.k===k));
+  $('src').textContent='> SOURCE: LOADING...';
+  const im=new Image();im.crossOrigin='anonymous';
+  im.onload=()=>{img=im;offline=false;draw()};
+  im.onerror=()=>{offline=true;draw()};
+  im.src=url(k);
+}
+function loadLabels(){
+  const im=new Image();im.crossOrigin='anonymous';
+  im.onload=()=>{lblImg=im;drawLabels()};
+  im.src='https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&STYLES=&CRS=EPSG:4326&BBOX=-90,-180,90,180&WIDTH=2880&HEIGHT=1440&TRANSPARENT=TRUE&FORMAT=image/png&LAYERS=Reference_Features_15m,Coastlines_15m,Reference_Labels_15m';
+}
+function drawLabels(){
+  lctx.clearRect(0,0,lbl.width,lbl.height);
+  if(showLbl&&lblImg)lctx.drawImage(lblImg,0,0,lbl.width,lbl.height);
+}
+$('labels').onclick=()=>{showLbl=!showLbl;drawLabels();toggles()};
+
+const gc={};let gBusy=0,gLast=0,gPos=[0,0];
+function geoReq(lat,lon){
+  gPos=[lat,lon];if(gBusy)return;gBusy=1;
+  setTimeout(async()=>{
+    gBusy=0;const[la,lo]=gPos,k=lang+la.toFixed(1)+','+lo.toFixed(1);let p=gc[k];
+    if(p===undefined){
+      gLast=Date.now();
+      try{
+        const j=await(await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=8&accept-language=${lang}&lat=${la}&lon=${lo}`)).json();
+        p=j.error?tr('water'):j.display_name;gc[k]=p;
+      }catch(e){return}
+    }
+    curPlace=p;$('v-place').textContent=p;say(cur.c,cur.lat,cur.lon);
+  },Math.max(300,1100-(Date.now()-gLast)));
+}
+
+function demoMap(){
+  const w=cv.width,h=cv.height,c=8;
+  for(let y=0;y<h;y+=c)for(let x=0;x<w;x+=c){
+    const u=x/w*6.28,v=y/h*3.14,e=Math.sin(u*2+1)*Math.cos(v*3)+Math.sin(u*5)*Math.sin(v*4)*.5,p=Math.abs(y/h-.5)*2;
+    ctx.fillStyle=p>.9?'#eef':e>.35?`rgb(${60+e*60|0},${120+e*40|0},60)`:`rgb(10,${60+e*30|0},${150+e*40|0})`;
+    ctx.fillRect(x,y,c,c);
+  }
+}
+function draw(){
+  ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
+  if(!offline&&img.naturalWidth){
+    ctx.drawImage(img,0,0,cv.width,cv.height);
+    try{ctx.getImageData(0,0,1,1);$('src').textContent='> SOURCE: NASA GIBS (LIVE)';return}catch(e){offline=true}
+  }
+  demoMap();$('src').textContent='> SOURCE: OFFLINE DEMO MAP';
+}
+function resize(){
+  cv.width=area.clientWidth;cv.height=area.clientHeight;
+  lbl.width=cv.width;lbl.height=cv.height;wv.width=wv.clientWidth;wv.height=90;drawLabels();
+  if(started){draw();if(!cx){cx=cv.width/2;cy=cv.height/2}}
+}
+
+function initAudio(){
+  const ac=A.ac=new(window.AudioContext||window.webkitAudioContext)();
+  A.master=ac.createGain();A.master.gain.value=0;
+  A.pan=ac.createStereoPanner();A.pan.connect(A.master);
+  A.an=ac.createAnalyser();A.an.fftSize=256;A.buf=new Uint8Array(A.an.frequencyBinCount);
+  const voice=(type,ff,g)=>{
+    const o=ac.createOscillator(),f=ac.createBiquadFilter(),gn=ac.createGain();
+    o.type=type;f.type='lowpass';f.frequency.value=ff;gn.gain.value=g;
+    o.connect(f);f.connect(gn);gn.connect(A.pan);o.start();return{o,f,gn};
+  };
+  A.mel=voice('sine',1500,.3);A.bass=voice('triangle',500,.5);A.pad=voice('sawtooth',200,.05);
+  A.master.connect(A.an);A.an.connect(ac.destination);A.dest=ac.createMediaStreamDestination();A.master.connect(A.dest);
+}
+function setActive(on){
+  if(!A.ac)return;if(A.ac.state==='suspended')A.ac.resume();
+  A.master.gain.setTargetAtTime(on?$('vol').value/100*.5:0,A.ac.currentTime,.1);
+}
+$('vol').oninput=()=>setActive(mode==='auto'||lx.style.display==='block');
+
+function hsl(r,g,b){
+  r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;let h=0,s=0;
+  if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);
+    h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60}
+  return[h,s,l];
+}
+function sample(x,y){
+  let d;try{d=ctx.getImageData(x|0,y|0,1,1).data}catch(e){return}
+  const r=d[0],g=d[1],b=d[2],[h,s,l]=hsl(r,g,b),cfg=L[key],t=A.ac.currentTime;
+  const lat=90-y/cv.height*180,lon=x/cv.width*360-180,mute=l<.03;
+  let mel,bas,flt,cls;
+  if(cfg.t==='terrain'){
+    mel=notes[Math.min(notes.length-1,h/360*notes.length|0)];bas=40+b/255*80;flt=300+s*2000;
+    cls=tr(mute?'nodata':l>.8&&s<.25?'ice':b>r&&b>g?'ocean':g>=r&&g>=b?'land':'desert');
+  }else{
+    const v=cfg.t==='lum'?Math.min(1,l*2.2):Math.max(0,Math.min(1,1-h/270));
+    mel=notes[v*(notes.length-1)|0];bas=40+v*90;flt=300+v*2500;
+    cls=mute?tr('nodata'):tr('l_'+key)+': '+tr(['low','mid','high'][v<.34?0:v<.67?1:2]);
+  }
+  A.mel.o.frequency.setTargetAtTime(mel,t,.05);A.mel.f.frequency.setTargetAtTime(flt,t,.05);
+  A.bass.o.frequency.setTargetAtTime(bas,t,.05);
+  A.pad.o.frequency.setTargetAtTime(70+(lat+90)/180*70,t,.1);
+  A.pan.pan.setTargetAtTime(lon/180,t,.05);
+  A.mel.gn.gain.setTargetAtTime(mute?0:.3,t,.05);A.bass.gn.gain.setTargetAtTime(mute?0:.5,t,.05);
+  $('v-rgb').textContent=`${r}, ${g}, ${b}`;$('v-pos').textContent=`${lat.toFixed(1)}°, ${lon.toFixed(1)}°`;
+  $('v-class').textContent=cls;$('v-mel').textContent=mel.toFixed(1);
+  $('v-bass').textContent=bas.toFixed(1);$('v-flt').textContent=flt.toFixed(0);
+  cur={c:cls,lat,lon};say(cls,lat,lon);geoReq(lat,lon);
+}
+function say(c,lat,lon){
+  if(!speech||!c||c+curPlace===lastSay||performance.now()-lastT<1200)return;
+  lastSay=c+curPlace;lastT=performance.now();speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(`${c}. ${curPlace}. ${tr('lat')} ${lat.toFixed(0)}, ${tr('lon')} ${lon.toFixed(0)}`);u.lang={en:'en-US',ar:'ar-SA',fr:'fr-FR',tr:'tr-TR'}[lang];speechSynthesis.speak(u);
+}
+$('speech').onclick=()=>{speech=!speech;if(!speech)speechSynthesis.cancel();toggles()};
+
+const clamp=(v,m)=>Math.max(0,Math.min(m-1,v));
+function move(x,y){
+  cy=clamp(y,cv.height);ly.style.top=cy+'px';ly.style.display='block';
+  if(mode==='auto')return;
+  cx=clamp(x,cv.width);lx.style.left=cx+'px';lx.style.display='block';
+  setActive(true);sample(cx,cy);
+}
+function pos(e){const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+area.addEventListener('pointermove',e=>mode==='manual'&&move(...pos(e)));
+area.addEventListener('pointerdown',e=>mode==='manual'&&move(...pos(e)));
+area.addEventListener('pointerleave',()=>{if(mode==='manual'){lx.style.display=ly.style.display='none';setActive(false)}});
+area.addEventListener('keydown',e=>{
+  const s=e.shiftKey?60:12,m={ArrowLeft:[-s,0],ArrowRight:[s,0],ArrowUp:[0,-s],ArrowDown:[0,s]}[e.key];
+  if(m){e.preventDefault();move(cx+m[0],cy+m[1])}
+  else if(e.key===' '){e.preventDefault();setMode(mode==='auto'?'manual':'auto')}
+});
+
+function setMode(m){
+  mode=m;$('b-manual').classList.toggle('active',m==='manual');$('b-auto').classList.toggle('active',m==='auto');
+  if(m==='auto'){lx.style.display='none';scan.style.display='block';ly.style.top=cy+'px';ly.style.display='block';scanX=0;setActive(true)}
+  else{scan.style.display=ly.style.display='none';setActive(false)}
+}
+$('b-manual').onclick=()=>setMode('manual');$('b-auto').onclick=()=>setMode('auto');
+
+function loop(){
+  requestAnimationFrame(loop);
+  if(mode==='auto'){scanX=(scanX+ +$('speed').value)%cv.width;scan.style.left=scanX+'px';sample(scanX,cy)}
+  A.an.getByteFrequencyData(A.buf);
+  const w=wv.width,h=wv.height,bw=w/A.buf.length*2.5;let x=0;
+  wctx.clearRect(0,0,w,h);
+  for(const v of A.buf){
+    const bh=v/255*h,gr=wctx.createLinearGradient(0,h,0,h-bh);
+    gr.addColorStop(0,'#00f3ff');gr.addColorStop(1,'#ff00ea');
+    wctx.fillStyle=gr;wctx.fillRect(x,h-bh,bw,bh);x+=bw+1;
+  }
+}
+
+$('start-btn').onclick=()=>{
+  const s=$('start-screen');s.style.opacity=0;setTimeout(()=>s.style.display='none',800);
+  $('app').style.display='grid';
+
+  // إظهار اللوجو الصغير في أعلى اليمين بعد بدء النظام
+  $('corner-logo').style.display='block';$('ticker').style.display='flex';
+
+  initAudio();started=true;resize();load('true');loadLabels();
+  window.addEventListener('resize',resize);
+  area.focus({preventScroll:true});loop();
+};
+
+$('rec').onclick=()=>{
+  if(!A.dest)return;
+  if(rec&&rec.state==='recording'){rec.stop();return}
+  chunks=[];rec=new MediaRecorder(A.dest.stream);rec.ondataavailable=e=>chunks.push(e.data);
+  rec.onstop=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(chunks,{type:rec.mimeType}));
+    a.download='earth-music.'+(rec.mimeType.includes('mp4')?'m4a':'webm');a.click();toggles()};
+  rec.start();toggles();
+};
+
+$('sform').onsubmit=async e=>{
+  e.preventDefault();const q=$('q').value.trim();if(!q||!started)return;
+  try{
+    const j=await(await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=${lang}&q=${encodeURIComponent(q)}`)).json();
+    if(!j[0])return;if(mode==='auto')setMode('manual');
+    move((+j[0].lon+180)/360*cv.width,(90-+j[0].lat)/180*cv.height);
+    setTimeout(()=>{if(mode==='manual'&&!area.matches(':hover'))setActive(false)},2500);
+  }catch(x){}
+};
+
+document.addEventListener('keydown',e=>{
+  if(!started||/INPUT|SELECT/.test(e.target.tagName))return;
+  const k=Object.keys(L)[+e.key-1];if(k)load(k);
+});
+
+document.querySelectorAll('.langsel').forEach(x=>{
+  x.innerHTML='<option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option><option value="tr">Türkçe</option>';
+  x.onchange=()=>{lang=x.value;applyLang()};
+});
+{const nl=navigator.language.slice(0,2);if(T[nl])lang=nl}
+buildNotes();applyLang();
+
+/* ================= اسم المشروع المتحرك: 909decode earth ================= */
+function brandify(el,txt){
+  el.setAttribute('aria-label',txt);
+  el.innerHTML=[...txt].map((c,i)=>c===' '?'<span class="sp" aria-hidden="true"></span>':`<span aria-hidden="true" style="--i:${i}">${c}</span>`).join('');
+}
+brandify($('brand'),'909decode earth');brandify($('brand-mini'),'909decode earth');
+
+/* ================= فريق Monofya Heroes (الشريط والصفحة بيتغيروا حسب اللغة) ================= */
+const TEAM_EN=['Momen Alaa El-Din Selim','Ahmed Mohamed Zakaria','Yousef Amr Abu Farag','Abdelrahman Qaoud','Alhoda Alaa El-Din Selim'];
+const TEAM_AR=['مؤمن علاء الدين سليم','أحمد محمد زكريا','يوسف عمرو أبو فرج','عبد الرحمن قعود','الهدى علاء الدين سليم'];
+const TK={
+  en:{lead:'monofya heroes',proj:'909: DECODE EARTH',loc:'Shibin El-Kom, Monufia, Egypt',sub:'The team behind 909: decode earth',
+    lines:['Transforming Earth observation data into meaningful sounds','Exploring Earth’s hidden patterns and environmental changes','Bridging science, technology & creativity','Turn data into sound, and sound into discovery!']},
+  ar:{lead:'مونوفية هيروز',proj:'909: DECODE EARTH',loc:'شبين الكوم، المنوفية، مصر',sub:'الفريق وراء 909: decode earth',
+    lines:['نحوّل بيانات رصد الأرض إلى أصوات ذات معنى','نستكشف الأنماط الخفية للأرض وتغيّراتها البيئية','نربط بين العلم والتكنولوجيا والإبداع','حوّل البيانات إلى صوت، والصوت إلى اكتشاف!']},
+  fr:{lead:'monofya heroes',proj:'909: DECODE EARTH',loc:'Shibin El-Kom, Monufia, Égypte',sub:"L'équipe derrière 909: decode earth",
+    lines:["Transformer les données d’observation de la Terre en sons porteurs de sens","Explorer les motifs cachés de la Terre et ses changements environnementaux","Relier science, technologie et créativité","Transformez les données en son, et le son en découverte !"]},
+  tr:{lead:'monofya heroes',proj:'909: DECODE EARTH',loc:'Şibin el-Köm, Menufiye, Mısır',sub:'909: decode earth ekibi',
+    lines:['Dünya gözlem verilerini anlamlı seslere dönüştürüyoruz','Dünya’nın gizli desenlerini ve çevresel değişimleri keşfediyoruz','Bilim, teknoloji ve yaratıcılık arasında köprü kuruyoruz','Veriyi sese, sesi keşfe dönüştür!']}
+};
+brandify($('ab-title'),'monofya heroes');
+const tkSpeed=()=>{const t=$('ticker-track');if(t.scrollWidth)t.style.animationDuration=(t.scrollWidth/2/90)+'s'};
+window.__team=()=>{
+  const names=lang==='ar'?TEAM_AR:TEAM_EN,k=TK[lang]||TK.en;
+  $('ab-sub').textContent=k.sub;
+  $('ab-mission').innerHTML=k.lines.slice(0,3).map(l=>`<p>${l}</p>`).join('')+`<p class="ab-loc">📍 ${k.loc} 🇪🇬</p><p><b style="color:var(--magenta)">${k.lines[3]}</b></p>`;
+  $('ab-grid').innerHTML='';
+  TEAM_EN.forEach((n,i)=>{
+    const c=document.createElement('div');c.className='ab-card';c.style.setProperty('--i',i);
+    const ini=n.split(' ').map(w=>w[0]).join('').slice(0,2);
+    c.innerHTML=`<div class="ab-av" aria-hidden="true">${ini}</div><div class="ab-name">${names[i]}</div><div class="ab-role">MONOFYA HEROES</div>`;
+    $('ab-grid').appendChild(c);
+  });
+  const it=t=>`<span class="ticker-item">${t}</span>`,em=e=>`<span class="ticker-emoji" aria-hidden="true">${e}</span>`,sep='<span class="ticker-sep">✦</span>';
+  const seg=em('🚀')+`<span class="ticker-item hl">${k.lead}</span>`+sep
+    +it(k.proj)+em('🌍')+sep
+    +names.map(n=>it(n)+sep).join('')
+    +it(k.loc)+em('🇪🇬')+sep
+    +it(k.lines[0])+em('🌎🔊')+sep
+    +it(k.lines[1])+sep+it(k.lines[2])+sep
+    +it(k.lines[3])+em('🚀')+sep;
+  $('ticker-track').innerHTML=seg+seg;
+  $('ticker').setAttribute('aria-label',k.lead+' - '+k.proj);
+  requestAnimationFrame(tkSpeed);
+};
+window.__team();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(tkSpeed);
+
+/* ================= MONOFYA HEROES ================= */
+/* الموديل: 'openrouter/free' بيختار موديل مجاني تلقائي. لو عايز موديل معين حط اسمه من openrouter.ai/models
+   (مثال: 'anthropic/claude-sonnet-4.5' أو أي موديل آخر ينتهي بـ :free) */
+const AI_MODEL='openrouter/free';
+const AI_SYS='You are 909 Chat, an expert, friendly assistant inside the 909decode earth website (a NASA Earth-imagery-to-sound project). Answer any question about space, astronomy, planets, stars, black holes, asteroids, exoplanets, missions, and NASA data (GIBS/EIC/MODIS/VIIRS/IMERG) accurately and clearly. Always reply in the same language the user writes in. Keep answers concise (usually under 150 words), short paragraphs, **bold** for key terms. If unsure or something may have changed recently, say so. If the question is not about space or science, politely steer back to space.';
+const AI_SUG=['ما هي الثقوب السوداء؟','لماذا المريخ أحمر؟','كيف تكتشف ناسا الكواكب الخارجية؟','ما الفرق بين الكويكب والمذنب؟','What is a light-year?'];
+const aiLog=$('ai-log');let aiHist=[],aiBusy=false;
+const aiEsc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const aiFmt=s=>aiEsc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+const aiAdd=(c,h)=>{const d=document.createElement('div');d.className='ai-m '+c;d.dir='auto';d.innerHTML=h;aiLog.appendChild(d);aiLog.scrollTop=aiLog.scrollHeight;return d};
+
+aiAdd('ai-a','أهلاً! أنا <b>909 Chat</b> 🚀 اسألني أي سؤال عن الفضاء أو عن بيانات ناسا اللي في الموقع.');
+AI_SUG.forEach(t=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.onclick=()=>aiAsk(t);$('ai-chips').appendChild(b)});
+
+/* ===== التبويبات: صفحة الذكاء بتظهر تحت التبويبات مكان الخريطة ===== */
+const tabMap=$('tab-map'),tabAi=$('tab-ai'),tabAb=$('tab-about');
+$('stage').appendChild($('ai-page'));$('stage').appendChild($('about-page'));
+function showTab(t){
+  if(t!=='map'&&mode==='auto')setMode('manual');
+  $('ai-page').classList.toggle('open',t==='ai');$('about-page').classList.toggle('open',t==='about');
+  [[tabMap,'map'],[tabAi,'ai'],[tabAb,'about']].forEach(([b,n])=>{b.classList.toggle('active',n===t);b.setAttribute('aria-selected',n===t)});
+  if(t==='map')area.focus({preventScroll:true});else{setActive(false);if(t==='ai')$('ai-q').focus()}
+}
+tabMap.onclick=()=>showTab('map');tabAi.onclick=()=>showTab('ai');tabAb.onclick=()=>showTab('about');
+$('ai-close').onclick=()=>showTab('map');
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!tabMap.classList.contains('active'))showTab('map')});
+
+async function aiAsk(text){
+  text=text.trim();if(!text||aiBusy)return;
+  $('ai-chips').style.display='none';
+  aiAdd('ai-u',aiEsc(text));$('ai-q').value='';
+  const out=aiAdd('ai-a','<span class="ai-dots"></span>');
+  const KEY=String(API_KEY||'').replace(/[\s"'\u200b-\u200f]/g,''),USE_PROXY=!!AI_PROXY;
+  if(!USE_PROXY&&(!KEY||KEY==='PUT_YOUR_API_KEY_HERE')){
+    out.classList.add('ai-e');out.textContent='الشات لسه مش متفعّل: حط رابط الـ Worker في AI_PROXY أول السكريبت (الخطوات في الشرح).';return;
+  }
+  const IS_OR=!USE_PROXY&&KEY.startsWith('sk-or-');
+  if(!USE_PROXY&&(KEY.includes('...')||(!IS_OR&&!/^(AQ\.|AIza)/.test(KEY)))){
+    out.classList.add('ai-e');out.textContent='المفتاح شكله غلط: لازم يبقى كامل. مفتاح OpenRouter بيبدأ بـ sk-or-v1- ومفتاح Gemini بيبدأ بـ AQ. أو AIza.';return;
+  }
+  aiBusy=true;$('ai-go').disabled=true;
+  aiHist.push({role:'user',content:text});
+  try{
+    let t='';
+    if(IS_OR){
+      /* ===== OpenRouter ===== */
+      const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+KEY,'X-Title':'909decode earth - 909 Chat'},
+        body:JSON.stringify({model:AI_MODEL,max_tokens:1000,messages:[{role:'system',content:AI_SYS},...aiHist.slice(-12)]})});
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.error&&j.error.message||r.status);
+      t=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'';
+    }else{
+      /* ===== Google Gemini (مفتاح AQ. أو AIza) - بيجرّب أكتر من موديل لحد ما واحد يشتغل ===== */
+      const GEMINI_MODELS=['gemini-flash-latest','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-flash-lite-latest','gemini-3.5-flash'];
+      const body=JSON.stringify({systemInstruction:{parts:[{text:AI_SYS}]},
+        contents:aiHist.slice(-12).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),
+        generationConfig:{maxOutputTokens:1000}});
+      let last='';
+      /* لو الموديل مشغول (503) أو الحد خلص (429) أو مش موجود (404) بنجرّب اللي بعده، وبنعيد المحاولة مرتين */
+      let stop=false;
+      for(let attempt=0;attempt<2&&!t&&!stop;attempt++){
+        if(attempt)await new Promise(res=>setTimeout(res,2500));
+        for(const m of GEMINI_MODELS){
+          const r=USE_PROXY
+            ?await fetch(AI_PROXY,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model:m,payload:JSON.parse(body)})})
+            :await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':KEY},body});
+          const j=await r.json().catch(()=>({}));
+          if(r.ok){t=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join('');if(t)break;continue}
+          last=(j.error&&j.error.message)||r.status;
+          if(![400,404,429,500,503].includes(r.status)){stop=true;break} /* مشكلة مفتاح/صلاحية، مفيش فايدة نجرّب تاني */
+        }
+      }
+      if(!t&&last)throw new Error(last);
+    }
+    if(!t)throw new Error('رد فاضي، جرّب تبعت السؤال تاني');
+    out.innerHTML=aiFmt(t);aiHist.push({role:'assistant',content:t});
+  }catch(e){
+    aiHist.pop();out.classList.add('ai-e');out.textContent='حصلت مشكلة: '+e.message;
+  }
+  aiBusy=false;$('ai-go').disabled=false;aiLog.scrollTop=aiLog.scrollHeight;$('ai-q').focus();
+}
+$('ai-form').onsubmit=e=>{e.preventDefault();aiAsk($('ai-q').value)};
+</script>
+</body>
+</html>
